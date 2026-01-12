@@ -143,6 +143,18 @@
 
 ---
 
+## 🍎 macOS Users (Lưu ý cho người dùng Mac)
+
+If you see the error **"App cannot be opened because the developer cannot be verified"** or **"Apple could not verify..."**:
+1.  Open **Finder** and go to **Applications**.
+2.  **Right-click** (or Control + Click) on the **Video-Get-Downloader** app.
+3.  Select **Open** from the menu.
+4.  A dialog will appear asking are you sure -> Click **Open**.
+
+*Lỗi này xuất hiện do ứng dụng chưa được ký số với Apple (cần phí $99/năm). Bạn chỉ cần chuột phải chọn Open là được.*
+
+---
+
 ## 🚀 Installation
 
 ### Windows
