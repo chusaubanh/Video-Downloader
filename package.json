@@ -1,7 +1,7 @@
 {
   "name": "video-get-downloader",
   "private": true,
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Video-Get-Downloader - Download videos from social media without watermark",
   "author": "ChuSauBanh",
   "license": "MIT",
@@ -56,11 +56,12 @@
       "dist/**/*",
       "electron/**/*",
       "!electron/yt-dlp.exe",
+      "!electron/yt-dlp-core.exe",
       "!**/*.map"
     ],
     "extraResources": [
       {
-        "from": "electron/yt-dlp.exe",
+        "from": "electron/yt-dlp-core.exe",
         "to": "yt-dlp-core.exe",
         "filter": [
           "**/*"
