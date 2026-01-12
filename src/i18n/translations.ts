@@ -97,7 +97,8 @@ export const translations = {
         updateCoreBtn: 'Cập nhật Core',
         updatingCore: 'Đang cập nhật...',
         coreUpdated: 'Core đã được cập nhật!',
-        coreUpdateError: 'Lỗi cập nhật Core'
+        coreUpdateError: 'Lỗi cập nhật Core',
+        appWillRestart: 'Ứng dụng sẽ khởi động lại...'
     },
     en: {
         // Header
@@ -196,7 +197,8 @@ export const translations = {
         updateCoreBtn: 'Update Core',
         updatingCore: 'Updating...',
         coreUpdated: 'Core updated!',
-        coreUpdateError: 'Core Update Error'
+        coreUpdateError: 'Core Update Error',
+        appWillRestart: 'App will restart...'
     }
 }
 

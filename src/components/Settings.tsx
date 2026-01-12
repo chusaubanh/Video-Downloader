@@ -1,84 +1,131 @@
 import { useState, useEffect } from 'react'
-import { translations, Language } from '../i18n/translations'
+import { translations } from '../i18n/translations'
 
-interface SettingsData {
-    defaultDownloadPath: string
-    autoSelectBestQuality: boolean
-    showNotifications: boolean
-    language: Language
-    darkMode: boolean
+
+
+// Language configuration
+const languages = {
+    vi: { name: 'Tiếng Việt', flag: '🇻🇳' },
+    en: { name: 'English', flag: '🇺🇸' }
 }
 
-interface SettingsProps {
-    isOpen: boolean
-    onClose: () => void
-    onSettingsChange: (settings: SettingsData) => void
-    embedded?: boolean
-    settings: SettingsData
-}
-
-function Settings({ isOpen, onClose, onSettingsChange, embedded = false, settings }: SettingsProps) {
-    const [localSettings, setLocalSettings] = useState<SettingsData>(settings)
+const Settings = ({
+    isOpen,
+    onClose,
+    embedded = false,
+    onSettingsChange,
+    settings
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    embedded?: boolean;
+    onSettingsChange?: (settings: SettingsData) => void;
+    settings?: SettingsData;
+}) => {
+    const [localSettings, setLocalSettings] = useState<SettingsData>(settings || {
+        defaultDownloadPath: '',
+        autoSelectBestQuality: true,
+        showNotifications: true,
+        darkMode: false,
+        language: 'vi'
+    })
     const [saved, setSaved] = useState(false)
 
-    // Update state
+    // Update State
     const [updateStatus, setUpdateStatus] = useState<string>('idle')
     const [updateInfo, setUpdateInfo] = useState<any>(null)
     const [updateProgress, setUpdateProgress] = useState<any>(null)
-    const [appVersion, setAppVersion] = useState('1.2.1')
+    const [appVersion, setAppVersion] = useState('1.2.2')
 
     // Core update state
     const [updatingCore, setUpdatingCore] = useState(false)
     const [coreUpdated, setCoreUpdated] = useState(false)
 
-    const t = translations[localSettings.language]
+    // Derived translations
+    const t = localSettings.language === 'vi' ? translations.vi : translations.en
 
+    // Load initial settings and app version
     useEffect(() => {
-        setLocalSettings(settings)
-    }, [settings])
+        const loadData = async () => {
+            if (window.electronAPI) {
+                try {
+                    // Update settings ONLY if not provided via props (standalone mode)
+                    if (!settings) {
+                        const loadedSettings = await window.electronAPI.getSettings()
+                        setLocalSettings(loadedSettings)
+                        if (loadedSettings.darkMode) {
+                            document.documentElement.classList.add('dark')
+                        } else {
+                            document.documentElement.classList.remove('dark')
+                        }
+                    }
 
-    const handleSave = () => {
-        localStorage.setItem('appSettings', JSON.stringify(localSettings))
-        onSettingsChange(localSettings)
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2000)
-        if (!embedded) {
-            onClose()
+                    const ver = await window.electronAPI.getAppVersion()
+                    setAppVersion(ver)
+                } catch (error) {
+                    console.error('Failed to load settings:', error)
+                }
+            }
         }
-    }
 
-    // Update logic
+        if (isOpen || embedded) {
+            loadData()
+        }
+    }, [isOpen, embedded, settings])
+
+    // Update listeners
     useEffect(() => {
         if (!window.electronAPI) return
 
-        const statusHandler = (status: any) => {
-            console.log('Update status:', status)
-            if (status.status === 'available') {
-                setUpdateInfo(status.info)
-            }
-            setUpdateStatus(status.status)
+        const handleUpdateStatus = (status: string, info: any) => {
+            console.log('Update Status:', status, info)
+            setUpdateStatus(status)
+            if (info) setUpdateInfo(info)
         }
 
-        const progressHandler = (progress: any) => {
+        const handleDownloadProgress = (progress: any) => {
             setUpdateProgress(progress)
         }
 
-        window.electronAPI.onUpdateStatus(statusHandler)
-        window.electronAPI.onUpdateDownloadProgress(progressHandler)
-
-        // Get app version
-        window.electronAPI.getAppVersion().then(ver => setAppVersion(ver))
-
-        // Check for updates on mount (optional, or rely on manual check)
-        // window.electronAPI.checkForUpdates()
+        window.electronAPI.onUpdateStatus(handleUpdateStatus)
+        window.electronAPI.onUpdateDownloadProgress(handleDownloadProgress)
 
         return () => {
             window.electronAPI?.removeUpdateListeners()
         }
     }, [])
 
+    // Real-time theme application
+    useEffect(() => {
+        if (localSettings.darkMode) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    }, [localSettings.darkMode])
+
+    const handleSelectFolder = async () => {
+        if (window.electronAPI) {
+            const path = await window.electronAPI.selectFolder()
+            if (path) {
+                setLocalSettings(prev => ({ ...prev, defaultDownloadPath: path }))
+            }
+        }
+    }
+
+    const handleSave = async () => {
+        if (window.electronAPI) {
+            await window.electronAPI.saveSettings(localSettings)
+            onSettingsChange?.(localSettings)
+            setSaved(true)
+            setTimeout(() => setSaved(false), 2000)
+            if (!embedded) onClose()
+        }
+    }
+
     const handleCheckForUpdates = () => {
         if (window.electronAPI) {
+            setUpdateStatus('checking')
             window.electronAPI.checkForUpdates()
         }
     }
@@ -96,180 +143,195 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
     }
 
     const handleUpdateCore = async () => {
-        if (!window.electronAPI) return
-        setUpdatingCore(true)
-        try {
-            await window.electronAPI.updateCore()
-            setCoreUpdated(true)
-            setTimeout(() => setCoreUpdated(false), 3000)
-        } catch (error) {
-            console.error(error)
-            alert(t.coreUpdateError)
-        } finally {
-            setUpdatingCore(false)
-        }
-    }
-
-    const handleSelectFolder = async () => {
         if (window.electronAPI) {
-            const folder = await window.electronAPI.selectFolder()
-            if (folder) {
-                setLocalSettings(prev => ({ ...prev, defaultDownloadPath: folder }))
+            setUpdatingCore(true)
+            try {
+                const result = await window.electronAPI.updateCore()
+                if (result.success) {
+                    setCoreUpdated(true)
+                    setTimeout(() => setCoreUpdated(false), 5000)
+                } else {
+                    alert('Update failed: ' + result.message)
+                }
+            } catch (error) {
+                console.error('Core update error:', error)
+                alert('Update failed')
+            } finally {
+                setUpdatingCore(false)
             }
-        } else {
-            setLocalSettings(prev => ({
-                ...prev,
-                defaultDownloadPath: 'C:\\Users\\Downloads\\Videos'
-            }))
         }
     }
 
-    const handleClearPath = () => {
-        setLocalSettings(prev => ({ ...prev, defaultDownloadPath: '' }))
+    const handleLanguageChange = (lang: 'vi' | 'en') => {
+        const newSettings = { ...localSettings, language: lang }
+        setLocalSettings(newSettings)
+        onSettingsChange?.(newSettings)
+    }
+
+    const handleThemeChange = (isDark: boolean) => {
+        const newSettings = { ...localSettings, darkMode: isDark }
+        setLocalSettings(newSettings)
+        onSettingsChange?.(newSettings)
     }
 
     if (!isOpen && !embedded) return null
 
     const content = (
         <div className="space-y-6">
-            {/* Language Toggle */}
-            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                            <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p className={`font-medium ${localSettings.darkMode ? 'text-white' : 'text-gray-800'}`}>{t.language}</p>
-                            <p className={`text-sm ${localSettings.darkMode ? 'text-white/50' : 'text-gray-500'}`}>
-                                {localSettings.language === 'vi' ? t.vietnamese : t.english}
-                            </p>
-                        </div>
+            {/* Language Selection */}
+            <div className="glass-card p-5">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                        </svg>
                     </div>
-                    <div className="flex gap-2">
+                    <div>
+                        <p className="font-medium text-gray-800 dark:text-white">{t.language}</p>
+                        <p className="text-sm text-gray-500 dark:text-white/50">
+                            {localSettings.language === 'vi' ? t.vietnamese : t.english}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex gap-4 mb-2">
+                    {Object.keys(languages).map((lang) => (
                         <button
-                            onClick={() => setLocalSettings(prev => ({ ...prev, language: 'vi' }))}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${localSettings.language === 'vi'
-                                ? 'bg-gradient-primary text-white'
-                                : localSettings.darkMode ? 'bg-white/10 text-white/60' : 'bg-gray-100 text-gray-600'
+                            key={lang}
+                            onClick={() => handleLanguageChange(lang as 'vi' | 'en')}
+                            className={`flex-1 p-4 rounded-xl border transition-all duration-300 flex flex-col items-center gap-2 ${localSettings.language === lang
+                                ? 'bg-gradient-primary text-white border-transparent shadow-lg transform scale-105'
+                                : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary-300 dark:hover:border-primary-500/50'
                                 }`}
                         >
-                            🇻🇳 VI
+                            <span className="text-2xl">{languages[lang as keyof typeof languages].flag}</span>
+                            <span className="font-medium">{languages[lang as keyof typeof languages].name}</span>
                         </button>
-                        <button
-                            onClick={() => setLocalSettings(prev => ({ ...prev, language: 'en' }))}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${localSettings.language === 'en'
-                                ? 'bg-gradient-primary text-white'
-                                : localSettings.darkMode ? 'bg-white/10 text-white/60' : 'bg-gray-100 text-gray-600'
-                                }`}
-                        >
-                            🇺🇸 EN
-                        </button>
-                    </div>
+                    ))}
                 </div>
             </div>
 
-            {/* Dark Mode Toggle */}
-            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${localSettings.darkMode ? 'bg-yellow-500/20' : 'bg-indigo-500/20'}`}>
-                            {localSettings.darkMode ? (
-                                <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                                </svg>
-                            ) : (
-                                <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                                </svg>
-                            )}
-                        </div>
-                        <div>
-                            <p className={`font-medium ${localSettings.darkMode ? 'text-white' : 'text-gray-800'}`}>
-                                {localSettings.darkMode ? t.darkMode : t.lightMode}
-                            </p>
-                            <p className={`text-sm ${localSettings.darkMode ? 'text-white/50' : 'text-gray-500'}`}>
-                                {localSettings.darkMode ? 'Background: BG.png' : 'Light gradient'}
-                            </p>
-                        </div>
+            {/* Appearance */}
+            <div className="glass-card p-5">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/20 dark:bg-yellow-500/20 flex items-center justify-center">
+                        {localSettings.darkMode ? (
+                            <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                        ) : (
+                            <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                            </svg>
+                        )}
                     </div>
+                    <div>
+                        <p className="font-medium text-gray-800 dark:text-white">
+                            {localSettings.darkMode ? t.darkMode : t.lightMode}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-white/50">
+                            {localSettings.darkMode ? 'Background: BG.png' : 'Light gradient'}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-2">
                     <button
-                        onClick={() => setLocalSettings(prev => ({ ...prev, darkMode: !prev.darkMode }))}
-                        className={`relative w-14 h-7 rounded-full transition-colors ${localSettings.darkMode ? 'bg-gradient-primary' : 'bg-gray-200'
+                        onClick={() => handleThemeChange(false)}
+                        className={`p-4 rounded-xl border transition-all duration-300 flex flex-col items-center gap-3 ${!localSettings.darkMode
+                            ? 'bg-gradient-primary text-white border-transparent shadow-lg transform scale-105'
+                            : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary-300 dark:hover:border-primary-500/50'
                             }`}
                     >
-                        <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow-md ${localSettings.darkMode ? 'left-8' : 'left-1'
-                            }`}></div>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${!localSettings.darkMode ? 'bg-white/20' : 'bg-gray-100 dark:bg-white/10'}`}>
+                            <svg className="w-5 h-5 text-white dark:text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                            </svg>
+                        </div>
+                        <span className="font-medium">{t.lightMode}</span>
+                    </button>
+                    <button
+                        onClick={() => handleThemeChange(true)}
+                        className={`p-4 rounded-xl border transition-all duration-300 flex flex-col items-center gap-3 ${localSettings.darkMode
+                            ? 'bg-gradient-primary text-white border-transparent shadow-lg transform scale-105'
+                            : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary-300 dark:hover:border-primary-500/50'
+                            }`}
+                    >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${localSettings.darkMode ? 'bg-white/20' : 'bg-gray-100 dark:bg-white/10'}`}>
+                            <svg className="w-5 h-5 text-white dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                        </div>
+                        <span className="font-medium">{t.darkMode}</span>
                     </button>
                 </div>
             </div>
 
             {/* Default download path */}
-            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
-                <label className={`block text-sm font-medium mb-3 flex items-center gap-2 ${localSettings.darkMode ? 'text-white' : 'text-gray-700'}`}>
+            <div className="glass-card p-5">
+                <label className="block text-sm font-medium mb-3 flex items-center gap-2 text-gray-700 dark:text-white">
                     <svg className="w-5 h-5 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
                     {t.defaultDownloadPath}
                 </label>
-                <div className="flex gap-2">
-                    <div className="flex-1 relative">
-                        <input
-                            type="text"
-                            value={localSettings.defaultDownloadPath}
-                            placeholder={t.selectFolderPlaceholder}
-                            readOnly
-                            className={`w-full h-12 px-4 pr-10 rounded-xl border focus:outline-none focus:border-primary-400 ${localSettings.darkMode
-                                ? 'bg-white/10 border-white/20 text-white placeholder-white/40'
-                                : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
-                                }`}
-                        />
-                        {localSettings.defaultDownloadPath && (
-                            <button
-                                onClick={handleClearPath}
-                                className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${localSettings.darkMode ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
-                                title="Clear path"
-                            >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        )}
+                <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+                        </svg>
                     </div>
+                    <input
+                        type="text"
+                        value={localSettings.defaultDownloadPath}
+                        placeholder={t.selectFolderPlaceholder}
+                        readOnly
+                        className="w-full h-12 px-4 pr-10 rounded-xl border focus:outline-none focus:border-primary-400 pl-10 bg-white dark:bg-white/10 border-gray-200 dark:border-white/20 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-white/40"
+                    />
+                    {localSettings.defaultDownloadPath && (
+                        <button
+                            onClick={() => setLocalSettings(prev => ({ ...prev, defaultDownloadPath: '' }))}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-white/40 dark:hover:text-white"
+                            title="Clear path"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
+                <div className="flex justify-end mt-2">
                     <button
                         onClick={handleSelectFolder}
-                        className="px-4 h-12 rounded-xl bg-primary-50 hover:bg-primary-100 text-primary-600 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-white/20 transition-colors text-sm font-medium flex items-center gap-2"
                     >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
                         </svg>
                         {t.select}
                     </button>
                 </div>
-                <p className={`mt-2 text-xs ${localSettings.darkMode ? 'text-white/40' : 'text-gray-500'}`}>
+                <p className="mt-2 text-xs text-gray-500 dark:text-white/40">
                     {t.leaveEmptyToAsk}
                 </p>
             </div>
 
             {/* Auto select best quality */}
-            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
+            <div className="glass-card p-5">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
                             <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </div>
                         <div>
-                            <p className={`font-medium ${localSettings.darkMode ? 'text-white' : 'text-gray-800'}`}>{t.preferHighQuality}</p>
-                            <p className={`text-sm ${localSettings.darkMode ? 'text-white/50' : 'text-gray-500'}`}>{t.preferHighQualityDesc}</p>
+                            <p className="font-medium text-gray-800 dark:text-white">{t.preferHighQuality}</p>
+                            <p className="text-sm text-gray-500 dark:text-white/50">{t.preferHighQualityDesc}</p>
                         </div>
                     </div>
                     <button
                         onClick={() => setLocalSettings(prev => ({ ...prev, autoSelectBestQuality: !prev.autoSelectBestQuality }))}
-                        className={`relative w-14 h-7 rounded-full transition-colors ${localSettings.autoSelectBestQuality ? 'bg-gradient-primary' : 'bg-gray-200'
+                        className={`relative w-14 h-7 rounded-full transition-colors ${localSettings.autoSelectBestQuality ? 'bg-gradient-primary' : 'bg-gray-200 dark:bg-gray-700'
                             }`}
                     >
                         <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow-md ${localSettings.autoSelectBestQuality ? 'left-8' : 'left-1'
@@ -279,7 +341,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
             </div>
 
             {/* Show notifications */}
-            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
+            <div className="glass-card p-5">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-mint-50 flex items-center justify-center">
@@ -288,13 +350,13 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
                             </svg>
                         </div>
                         <div>
-                            <p className={`font-medium ${localSettings.darkMode ? 'text-white' : 'text-gray-800'}`}>{t.notifyWhenDone}</p>
-                            <p className={`text-sm ${localSettings.darkMode ? 'text-white/50' : 'text-gray-500'}`}>{t.notifyWhenDoneDesc}</p>
+                            <p className="font-medium text-gray-800 dark:text-white">{t.notifyWhenDone}</p>
+                            <p className="text-sm text-gray-500 dark:text-white/50">{t.notifyWhenDoneDesc}</p>
                         </div>
                     </div>
                     <button
                         onClick={() => setLocalSettings(prev => ({ ...prev, showNotifications: !prev.showNotifications }))}
-                        className={`relative w-14 h-7 rounded-full transition-colors ${localSettings.showNotifications ? 'bg-gradient-primary' : 'bg-gray-200'
+                        className={`relative w-14 h-7 rounded-full transition-colors ${localSettings.showNotifications ? 'bg-gradient-primary' : 'bg-gray-200 dark:bg-gray-700'
                             }`}
                     >
                         <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow-md ${localSettings.showNotifications ? 'left-8' : 'left-1'
@@ -331,7 +393,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
             </div>
 
             {/* Software Update */}
-            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
+            <div className="glass-card p-5">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
@@ -340,8 +402,8 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
                             </svg>
                         </div>
                         <div>
-                            <p className={`font-medium ${localSettings.darkMode ? 'text-white' : 'text-gray-800'}`}>Software Update</p>
-                            <p className={`text-sm ${localSettings.darkMode ? 'text-white/50' : 'text-gray-500'}`}>
+                            <p className="font-medium text-gray-800 dark:text-white">Software Update</p>
+                            <p className="text-sm text-gray-500 dark:text-white/50">
                                 {updateStatus === 'idle' && t.version + ' ' + appVersion}
                                 {updateStatus === 'checking' && t.checkingForUpdates}
                                 {updateStatus === 'not-available' && t.updateNotAvailable}
@@ -358,9 +420,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
                     {updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error' ? (
                         <button
                             onClick={handleCheckForUpdates}
-                            className={`w-full py-2.5 rounded-xl font-medium transition-all ${localSettings.darkMode
-                                ? 'bg-white/10 text-white hover:bg-white/20'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            className="w-full py-2.5 rounded-xl font-medium transition-all bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
                         >
                             {t.checkForUpdates}
                         </button>
@@ -380,14 +440,22 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
                     )}
 
                     {updateStatus === 'downloading' && (
-                        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2 overflow-hidden">
-                            <div
-                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 relative"
-                                style={{ width: `${updateProgress?.percent || 0}%` }}
-                            >
-                                <div className="absolute inset-0 bg-white/30 animate-[shimmer_2s_infinite]"></div>
+                        <div className="w-full max-w-xs text-center mx-auto">
+                            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                                <svg className="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
                             </div>
-                            <p className={`text-xs text-center mt-1 ${localSettings.darkMode ? 'text-white/60' : 'text-gray-500'}`}>
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">{t.downloadingUpdate}</h3>
+                            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2 overflow-hidden">
+                                <div
+                                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 relative"
+                                    style={{ width: `${updateProgress?.percent || 0}%` }}
+                                >
+                                    <div className="absolute inset-0 bg-white/30 animate-[shimmer_2s_infinite]"></div>
+                                </div>
+                            </div>
+                            <p className="text-xs text-center mt-1 text-gray-500 dark:text-white/60">
                                 {Math.round(updateProgress?.percent || 0)}%
                             </p>
                         </div>
@@ -408,7 +476,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
             </div>
 
             {/* Core Update */}
-            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
+            <div className="glass-card p-5">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
@@ -417,55 +485,59 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
                             </svg>
                         </div>
                         <div>
-                            <p className={`font-medium ${localSettings.darkMode ? 'text-white' : 'text-gray-800'}`}>{t.updateCoreTitle}</p>
-                            <p className={`text-sm ${localSettings.darkMode ? 'text-white/50' : 'text-gray-500'}`}>
+                            <p className="font-medium text-gray-800 dark:text-white">{t.updateCoreTitle}</p>
+                            <p className="text-sm text-gray-500 dark:text-white/50">
                                 {t.updateCoreDesc}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <button
-                    onClick={handleUpdateCore}
-                    disabled={updatingCore}
-                    className={`w-full py-2.5 rounded-xl font-medium transition-all mt-2 flex items-center justify-center gap-2 ${coreUpdated
-                        ? 'bg-green-500 text-white'
-                        : updatingCore
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : localSettings.darkMode
-                                ? 'bg-white/10 text-white hover:bg-white/20'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                >
-                    {updatingCore ? (
-                        <>
-                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                            {t.updatingCore}
-                        </>
-                    ) : coreUpdated ? (
-                        <>
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                {updatingCore ? (
+                    // Core Updating UI
+                    <div className="w-full max-w-xs text-center mx-auto">
+                        <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                            <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
-                            {t.coreUpdated}
-                        </>
-                    ) : (
-                        t.updateCoreBtn
-                    )}
-                </button>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">{t.updatingCore}...</h3>
+                        <p className="text-sm text-gray-500 dark:text-white/60">{t.appWillRestart}</p>
+                    </div>
+                ) : (
+                    <button
+                        onClick={handleUpdateCore}
+                        disabled={updatingCore}
+                        className={`w-full py-2.5 rounded-xl font-medium transition-all mt-2 flex items-center justify-center gap-2 ${coreUpdated
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/10 dark:text-white dark:hover:bg-white/20'
+                            }`}
+                    >
+                        {coreUpdated ? (
+                            <>
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                {t.coreUpdated}
+                            </>
+                        ) : (
+                            t.updateCoreBtn
+                        )}
+                    </button>
+                )}
             </div>
 
             {/* Disclaimer */}
-            <div className={`glass-card p-5 border-l-4 ${localSettings.darkMode ? '!bg-white/10 !border-amber-400' : 'border-amber-400 bg-amber-50'}`}>
+            <div className="glass-card p-5 border-l-4 border-amber-400 bg-amber-50 dark:!bg-white/10">
                 <div className="flex items-start gap-3">
-                    <svg className={`w-6 h-6 flex-shrink-0 mt-1 ${localSettings.darkMode ? 'text-amber-400' : 'text-amber-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-6 h-6 flex-shrink-0 mt-1 text-amber-500 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div>
-                        <h3 className={`font-semibold mb-1 ${localSettings.darkMode ? 'text-amber-400' : 'text-amber-600'}`}>
+                        <h3 className="font-semibold mb-1 text-amber-600 dark:text-amber-400">
                             {t.disclaimerTitle}
                         </h3>
-                        <p className={`text-sm leading-relaxed ${localSettings.darkMode ? 'text-white/80' : 'text-gray-700'}`}>
+                        <p className="text-sm leading-relaxed text-gray-700 dark:text-white/80">
                             {t.disclaimerText}
                         </p>
                     </div>
@@ -473,17 +545,17 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
             </div>
 
             {/* App info */}
-            <div className={`glass-card p-5 text-center ${localSettings.darkMode ? '!bg-white/10' : ''}`}>
+            <div className="glass-card p-6 h-full flex flex-col justify-center items-center">
                 <div className="flex items-center justify-center gap-2 mb-2">
                     <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
                         <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                     </div>
-                    <span className={`font-semibold ${localSettings.darkMode ? 'text-white' : 'text-gray-800'}`}>Video-Get-Downloader</span>
+                    <span className="font-bold text-gray-800 dark:text-white">Video-Get-Downloader</span>
                 </div>
-                <p className={`text-sm ${localSettings.darkMode ? 'text-white/50' : 'text-gray-500'}`}>{t.version} {appVersion}</p>
-                <p className={`text-xs mt-1 ${localSettings.darkMode ? 'text-white/40' : 'text-gray-400'}`}>{t.poweredBy} <span className="gradient-text font-medium">ChuSauBanh</span></p>
+                <p className="text-sm text-gray-500 dark:text-white/50">{t.version} {appVersion}</p>
+                <p className="text-xs mt-1 text-gray-400 dark:text-white/40">{t.poweredBy} <span className="gradient-text font-medium">ChuSauBanh</span></p>
             </div>
         </div>
     )
@@ -495,17 +567,17 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose}></div>
-            <div className={`relative glass-card p-6 w-full max-w-lg mx-4 slide-in max-h-[90vh] overflow-y-auto ${localSettings.darkMode ? 'bg-dark-800/90' : ''}`}>
+            <div className="relative glass-card p-6 w-full max-w-lg mx-4 slide-in max-h-[90vh] overflow-y-auto dark:bg-slate-900/95">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className={`text-xl font-bold flex items-center gap-2 ${localSettings.darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800 dark:text-white">
                         <svg className="w-6 h-6 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                         {t.settings}
                     </h2>
-                    <button onClick={onClose} className={`p-2 rounded-lg transition-colors ${localSettings.darkMode ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
-                        <svg className={`w-5 h-5 ${localSettings.darkMode ? 'text-white/50 hover:text-white' : 'text-gray-500 hover:text-gray-700'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button onClick={onClose} className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-white/10">
+                        <svg className="w-5 h-5 text-gray-500 hover:text-gray-700 dark:text-white/50 dark:hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -517,4 +589,4 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
 }
 
 export default Settings
-export type { SettingsData }
+

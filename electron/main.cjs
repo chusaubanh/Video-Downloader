@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
 const path = require('path')
+const fs = require('fs').promises
 const { autoUpdater } = require('electron-updater')
 const { downloadVideo, getVideoInfo, cancelDownload, updateBinary } = require('./ytdlp.cjs')
 
@@ -209,5 +210,34 @@ ipcMain.handle('open-folder', async (event, folderPath) => {
 // Open file location
 ipcMain.handle('show-item-in-folder', async (event, filePath) => {
     shell.showItemInFolder(filePath)
+})
+
+// Settings Handlers
+const settingsPath = path.join(app.getPath('userData'), 'settings.json')
+
+ipcMain.handle('get-settings', async () => {
+    try {
+        const data = await fs.readFile(settingsPath, 'utf8')
+        return JSON.parse(data)
+    } catch (error) {
+        // Return defaults if file doesn't exist
+        return {
+            defaultDownloadPath: '',
+            autoSelectBestQuality: true,
+            showNotifications: true,
+            darkMode: false,
+            language: 'vi'
+        }
+    }
+})
+
+ipcMain.handle('save-settings', async (event, settings) => {
+    try {
+        await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2))
+        return true
+    } catch (error) {
+        console.error('Failed to save settings:', error)
+        return false
+    }
 })
 

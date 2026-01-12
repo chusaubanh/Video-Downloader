@@ -27,6 +27,8 @@ interface VideoFormat {
     downloadUrl?: string
 }
 
+
+
 interface ElectronAPI {
     // Window controls
     minimizeWindow: () => Promise<void>
@@ -41,6 +43,8 @@ interface ElectronAPI {
     selectFolder: () => Promise<string | null>
     openFolder: (path: string) => Promise<void>
     showItemInFolder: (path: string) => Promise<void>
+    getSettings: () => Promise<SettingsData>
+    saveSettings: (settings: SettingsData) => Promise<boolean>
 
     // Events
     onDownloadProgress: (callback: (progress: DownloadProgress) => void) => void
@@ -51,15 +55,23 @@ interface ElectronAPI {
     downloadUpdate: () => Promise<void>
     quitAndInstall: () => Promise<void>
     getAppVersion: () => Promise<string>
-    updateCore: () => Promise<string>
+    updateCore: () => Promise<{ success: boolean; message: string }>
 
     // Update listeners
-    onUpdateStatus: (callback: (status: any) => void) => void
+    onUpdateStatus: (callback: (status: string, info?: any) => void) => void
     onUpdateDownloadProgress: (callback: (progress: any) => void) => void
     removeUpdateListeners: () => void
 }
 
 declare global {
+    interface SettingsData {
+        defaultDownloadPath: string
+        autoSelectBestQuality: boolean
+        showNotifications: boolean
+        darkMode: boolean
+        language: 'vi' | 'en'
+    }
+
     interface Window {
         electronAPI?: ElectronAPI
     }

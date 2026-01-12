@@ -5,7 +5,7 @@ import URLInput from './components/URLInput'
 import VideoPreview from './components/VideoPreview'
 import DownloadProgress from './components/DownloadProgress'
 import DownloadHistory from './components/DownloadHistory'
-import Settings, { SettingsData } from './components/Settings'
+import Settings from './components/Settings'
 import { getVideoInfo, VideoInfo, VideoFormat } from './services/videoService'
 import { translations, Language } from './i18n/translations'
 
@@ -181,8 +181,8 @@ function App() {
                         {/* Mode indicator */}
                         <div className="mb-4 flex justify-center">
                             <div className={`px-3 py-1 rounded-full text-xs font-medium ${isElectron
-                                    ? settings.darkMode ? 'bg-mint-500/20 text-mint-400' : 'bg-mint-100 text-mint-600'
-                                    : settings.darkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-600'
+                                ? settings.darkMode ? 'bg-mint-500/20 text-mint-400' : 'bg-mint-100 text-mint-600'
+                                : settings.darkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-600'
                                 }`}>
                                 {isElectron ? t.electronMode : t.browserMode}
                             </div>

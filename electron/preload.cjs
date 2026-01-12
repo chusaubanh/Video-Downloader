@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.invoke('download-video', videoId, formatId, savePath),
     cancelDownload: () => ipcRenderer.invoke('cancel-download'),
     updateCore: () => ipcRenderer.invoke('update-core-ytdlp'),
+    getSettings: () => ipcRenderer.invoke('get-settings'),
+    saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
 
     // File operations
     selectFolder: () => ipcRenderer.invoke('select-folder'),
@@ -36,7 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Update listeners
     onUpdateStatus: (callback) => {
-        ipcRenderer.on('update-status', (event, status) => callback(status))
+        ipcRenderer.on('update-status', (event, status, info) => callback(status, info))
     },
     onUpdateDownloadProgress: (callback) => {
         ipcRenderer.on('update-download-progress', (event, progress) => callback(progress))
