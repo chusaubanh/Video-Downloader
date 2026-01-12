@@ -25,5 +25,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     removeDownloadProgressListener: () => {
         ipcRenderer.removeAllListeners('download-progress')
+    },
+
+    // Update operations
+    checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+    downloadUpdate: () => ipcRenderer.invoke('download-update'),
+    quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+    getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+    // Update listeners
+    onUpdateStatus: (callback) => {
+        ipcRenderer.on('update-status', (event, status) => callback(status))
+    },
+    onUpdateDownloadProgress: (callback) => {
+        ipcRenderer.on('update-download-progress', (event, progress) => callback(progress))
+    },
+    removeUpdateListeners: () => {
+        ipcRenderer.removeAllListeners('update-status')
+        ipcRenderer.removeAllListeners('update-download-progress')
     }
 })

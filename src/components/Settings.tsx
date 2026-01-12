@@ -21,6 +21,11 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
     const [localSettings, setLocalSettings] = useState<SettingsData>(settings)
     const [saved, setSaved] = useState(false)
 
+    // Update state
+    const [updateStatus, setUpdateStatus] = useState<string>('idle')
+    const [updateInfo, setUpdateInfo] = useState<any>(null)
+    const [updateProgress, setUpdateProgress] = useState<any>(null)
+
     const t = translations[localSettings.language]
 
     useEffect(() => {
@@ -34,6 +39,51 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
         setTimeout(() => setSaved(false), 2000)
         if (!embedded) {
             onClose()
+        }
+    }
+
+    // Update logic
+    useEffect(() => {
+        if (!window.electronAPI) return
+
+        const statusHandler = (status: any) => {
+            console.log('Update status:', status)
+            if (status.status === 'available') {
+                setUpdateInfo(status.info)
+            }
+            setUpdateStatus(status.status)
+        }
+
+        const progressHandler = (progress: any) => {
+            setUpdateProgress(progress)
+        }
+
+        window.electronAPI.onUpdateStatus(statusHandler)
+        window.electronAPI.onUpdateDownloadProgress(progressHandler)
+
+        // Check for updates on mount (optional, or rely on manual check)
+        // window.electronAPI.checkForUpdates()
+
+        return () => {
+            window.electronAPI.removeUpdateListeners()
+        }
+    }, [])
+
+    const handleCheckForUpdates = () => {
+        if (window.electronAPI) {
+            window.electronAPI.checkForUpdates()
+        }
+    }
+
+    const handleDownloadUpdate = () => {
+        if (window.electronAPI) {
+            window.electronAPI.downloadUpdate()
+        }
+    }
+
+    const handleRestartToUpdate = () => {
+        if (window.electronAPI) {
+            window.electronAPI.quitAndInstall()
         }
     }
 
@@ -60,7 +110,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
     const content = (
         <div className="space-y-6">
             {/* Language Toggle */}
-            <div className="glass-card p-5">
+            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
@@ -99,7 +149,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
             </div>
 
             {/* Dark Mode Toggle */}
-            <div className="glass-card p-5">
+            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${localSettings.darkMode ? 'bg-yellow-500/20' : 'bg-indigo-500/20'}`}>
@@ -134,7 +184,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
             </div>
 
             {/* Default download path */}
-            <div className="glass-card p-5">
+            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
                 <label className={`block text-sm font-medium mb-3 flex items-center gap-2 ${localSettings.darkMode ? 'text-white' : 'text-gray-700'}`}>
                     <svg className="w-5 h-5 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -181,7 +231,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
             </div>
 
             {/* Auto select best quality */}
-            <div className="glass-card p-5">
+            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
@@ -206,7 +256,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
             </div>
 
             {/* Show notifications */}
-            <div className="glass-card p-5">
+            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-mint-50 flex items-center justify-center">
@@ -257,8 +307,85 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
                 </button>
             </div>
 
+            {/* Software Update */}
+            <div className={`glass-card p-5 ${localSettings.darkMode ? '!bg-white/10 !border-white/10' : ''}`}>
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p className={`font-medium ${localSettings.darkMode ? 'text-white' : 'text-gray-800'}`}>Software Update</p>
+                            <p className={`text-sm ${localSettings.darkMode ? 'text-white/50' : 'text-gray-500'}`}>
+                                {updateStatus === 'idle' && t.version + ' 1.0.0'}
+                                {updateStatus === 'checking' && t.checkingForUpdates}
+                                {updateStatus === 'not-available' && t.updateNotAvailable}
+                                {updateStatus === 'available' && t.updateAvailable + ' ' + (updateInfo?.version || '')}
+                                {updateStatus === 'downloading' && t.downloadingUpdate}
+                                {updateStatus === 'downloaded' && t.updateDownloaded}
+                                {updateStatus === 'error' && t.updateError}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-4">
+                    {updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error' ? (
+                        <button
+                            onClick={handleCheckForUpdates}
+                            className={`w-full py-2.5 rounded-xl font-medium transition-all ${localSettings.darkMode
+                                ? 'bg-white/10 text-white hover:bg-white/20'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                        >
+                            {t.checkForUpdates}
+                        </button>
+                    ) : null}
+
+                    {updateStatus === 'available' && (
+                        <button
+                            onClick={handleDownloadUpdate}
+                            className="w-full py-2.5 rounded-xl font-medium bg-gradient-brand text-white shadow-lg shadow-brand-500/30 hover:shadow-brand-500/40 transition-all flex items-center justify-center gap-2"
+                            style={{ background: 'linear-gradient(135deg, #0ea5e9, #34d399)' }}
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            {t.downloadUpdate}
+                        </button>
+                    )}
+
+                    {updateStatus === 'downloading' && (
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2 overflow-hidden">
+                            <div
+                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 relative"
+                                style={{ width: `${updateProgress?.percent || 0}%` }}
+                            >
+                                <div className="absolute inset-0 bg-white/30 animate-[shimmer_2s_infinite]"></div>
+                            </div>
+                            <p className={`text-xs text-center mt-1 ${localSettings.darkMode ? 'text-white/60' : 'text-gray-500'}`}>
+                                {Math.round(updateProgress?.percent || 0)}%
+                            </p>
+                        </div>
+                    )}
+
+                    {updateStatus === 'downloaded' && (
+                        <button
+                            onClick={handleRestartToUpdate}
+                            className="w-full py-2.5 rounded-xl font-medium bg-green-500 text-white shadow-lg shadow-green-500/30 hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            {t.restartToUpdate}
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {/* Disclaimer */}
-            <div className={`glass-card p-5 border-l-4 ${localSettings.darkMode ? 'border-amber-400 bg-amber-400/10' : 'border-amber-400 bg-amber-50'}`}>
+            <div className={`glass-card p-5 border-l-4 ${localSettings.darkMode ? '!bg-white/10 !border-amber-400' : 'border-amber-400 bg-amber-50'}`}>
                 <div className="flex items-start gap-3">
                     <svg className={`w-6 h-6 flex-shrink-0 mt-1 ${localSettings.darkMode ? 'text-amber-400' : 'text-amber-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -275,7 +402,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
             </div>
 
             {/* App info */}
-            <div className="glass-card p-5 text-center">
+            <div className={`glass-card p-5 text-center ${localSettings.darkMode ? '!bg-white/10' : ''}`}>
                 <div className="flex items-center justify-center gap-2 mb-2">
                     <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
                         <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

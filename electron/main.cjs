@@ -1,18 +1,21 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron')
 const path = require('path')
+const { autoUpdater } = require('electron-updater')
 const { downloadVideo, getVideoInfo, cancelDownload } = require('./ytdlp.cjs')
 
 let mainWindow = null
 let isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
-// Single instance lock - only allow one instance of the app
+// Disable auto download for manual control or better UX
+autoUpdater.autoDownload = false
+autoUpdater.autoInstallOnAppQuit = true
+
+// Single instance lock
 const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
-    // Another instance is already running, quit this one
     app.quit()
 } else {
-    // Someone tried to run a second instance, focus our window
     app.on('second-instance', () => {
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore()
@@ -27,7 +30,7 @@ function createWindow() {
         height: 700,
         minWidth: 800,
         minHeight: 600,
-        frame: false, // Frameless window for custom titlebar
+        frame: false,
         transparent: false,
         backgroundColor: '#0a0a0f',
         webPreferences: {
@@ -36,10 +39,9 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.cjs')
         },
         icon: path.join(__dirname, '../public/icon.png'),
-        show: false // Don't show until ready
+        show: false
     })
 
-    // Load the app
     if (isDev) {
         mainWindow.loadURL('http://localhost:5173')
         mainWindow.webContents.openDevTools()
@@ -47,22 +49,50 @@ function createWindow() {
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
     }
 
-    // Show window when ready
     mainWindow.once('ready-to-show', () => {
         mainWindow.show()
+        // Check for updates after window is shown (only in production)
+        if (!isDev) {
+            autoUpdater.checkForUpdatesAndNotify()
+        }
     })
 
     mainWindow.on('closed', () => {
-        // Cancel any running downloads
         cancelDownload()
         mainWindow = null
     })
-
-    // Handle close button to cleanup
-    mainWindow.on('close', () => {
-        cancelDownload()
-    })
 }
+
+// Auto Updater Events
+autoUpdater.on('checking-for-update', () => {
+    mainWindow?.webContents.send('update-status', { status: 'checking' })
+})
+
+autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update-status', {
+        status: 'available',
+        info: {
+            version: info.version,
+            releaseDate: info.releaseDate
+        }
+    })
+})
+
+autoUpdater.on('update-not-available', () => {
+    mainWindow?.webContents.send('update-status', { status: 'not-available' })
+})
+
+autoUpdater.on('error', (err) => {
+    mainWindow?.webContents.send('update-status', { status: 'error', error: err.message })
+})
+
+autoUpdater.on('download-progress', (progressObj) => {
+    mainWindow?.webContents.send('update-download-progress', progressObj)
+})
+
+autoUpdater.on('update-downloaded', () => {
+    mainWindow?.webContents.send('update-status', { status: 'downloaded' })
+})
 
 // App lifecycle
 app.whenReady().then(() => {
@@ -76,19 +106,41 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-    // Cancel any running downloads before quitting
     cancelDownload()
     if (process.platform !== 'darwin') {
         app.quit()
     }
 })
 
-// Force quit on before-quit
 app.on('before-quit', () => {
     cancelDownload()
 })
 
 // IPC Handlers
+
+// Update controls
+ipcMain.handle('check-for-updates', () => {
+    if (!isDev) {
+        autoUpdater.checkForUpdates()
+    } else {
+        // Mock update in dev
+        setTimeout(() => {
+            mainWindow?.webContents.send('update-status', { status: 'not-available' })
+        }, 1000)
+    }
+})
+
+ipcMain.handle('download-update', () => {
+    autoUpdater.downloadUpdate()
+})
+
+ipcMain.handle('quit-and-install', () => {
+    autoUpdater.quitAndInstall()
+})
+
+ipcMain.handle('get-app-version', () => {
+    return app.getVersion()
+})
 
 // Window controls
 ipcMain.handle('minimize-window', () => {
@@ -148,3 +200,4 @@ ipcMain.handle('open-folder', async (event, folderPath) => {
 ipcMain.handle('show-item-in-folder', async (event, filePath) => {
     shell.showItemInFolder(filePath)
 })
+

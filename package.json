@@ -23,6 +23,7 @@
     "dist": "electron-builder"
   },
   "dependencies": {
+    "electron-updater": "^6.7.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -167,6 +168,17 @@
     },
     "appImage": {
       "artifactName": "${productName}-${version}-${os}.${ext}"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "chusaubanh",
+        "repo": "Video-Downloader"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chusaubanh/Video-Downloader.git"
   }
 }
