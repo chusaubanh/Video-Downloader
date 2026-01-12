@@ -25,7 +25,7 @@ function Settings({ isOpen, onClose, onSettingsChange, embedded = false, setting
     const [updateStatus, setUpdateStatus] = useState<string>('idle')
     const [updateInfo, setUpdateInfo] = useState<any>(null)
     const [updateProgress, setUpdateProgress] = useState<any>(null)
-    const [appVersion, setAppVersion] = useState('1.2.0')
+    const [appVersion, setAppVersion] = useState('1.2.1')
 
     // Core update state
     const [updatingCore, setUpdatingCore] = useState(false)

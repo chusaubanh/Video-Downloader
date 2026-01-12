@@ -24,7 +24,7 @@ jobs:
 
       - name: Download yt-dlp
         run: |
-          curl -L -o electron/yt-dlp.exe https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
+          curl -L -o electron/yt-dlp-core.exe https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.exe
 
       - name: Generate icons
         run: |
@@ -61,7 +61,7 @@ jobs:
 
       - name: Download yt-dlp
         run: |
-          curl -L -o electron/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos
+          curl -L -o electron/yt-dlp https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_macos
           chmod +x electron/yt-dlp
 
       - name: Generate icons
@@ -111,7 +111,7 @@ jobs:
 
       - name: Download yt-dlp
         run: |
-          curl -L -o electron/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
+          curl -L -o electron/yt-dlp https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp
           chmod +x electron/yt-dlp
 
       - name: Generate icons
