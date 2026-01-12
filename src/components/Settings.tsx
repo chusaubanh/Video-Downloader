@@ -4,10 +4,7 @@ import { translations } from '../i18n/translations'
 
 
 // Language configuration
-const languages = {
-    vi: { name: 'Tiếng Việt', flag: '🇻🇳' },
-    en: { name: 'English', flag: '🇺🇸' }
-}
+
 
 const Settings = ({
     isOpen,
@@ -35,7 +32,7 @@ const Settings = ({
     const [updateStatus, setUpdateStatus] = useState<string>('idle')
     const [updateInfo, setUpdateInfo] = useState<any>(null)
     const [updateProgress, setUpdateProgress] = useState<any>(null)
-    const [appVersion, setAppVersion] = useState('1.2.2')
+    const [appVersion, setAppVersion] = useState('1.2.3')
 
     // Core update state
     const [updatingCore, setUpdatingCore] = useState(false)
@@ -179,89 +176,85 @@ const Settings = ({
     const content = (
         <div className="space-y-6">
             {/* Language Selection */}
+            {/* Language Selection */}
             <div className="glass-card p-5">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                        </svg>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-800 dark:text-white">{t.language}</p>
+                            <p className="text-sm text-gray-500 dark:text-white/50">
+                                {localSettings.language === 'vi' ? t.vietnamese : t.english}
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="font-medium text-gray-800 dark:text-white">{t.language}</p>
-                        <p className="text-sm text-gray-500 dark:text-white/50">
-                            {localSettings.language === 'vi' ? t.vietnamese : t.english}
-                        </p>
-                    </div>
-                </div>
-                <div className="flex gap-4 mb-2">
-                    {Object.keys(languages).map((lang) => (
-                        <button
-                            key={lang}
-                            onClick={() => handleLanguageChange(lang as 'vi' | 'en')}
-                            className={`flex-1 p-4 rounded-xl border transition-all duration-300 flex flex-col items-center gap-2 ${localSettings.language === lang
-                                ? 'bg-gradient-primary text-white border-transparent shadow-lg transform scale-105'
-                                : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary-300 dark:hover:border-primary-500/50'
-                                }`}
+                    <div className="relative">
+                        <select
+                            value={localSettings.language}
+                            onChange={(e) => handleLanguageChange(e.target.value as 'vi' | 'en')}
+                            className="appearance-none bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white border border-gray-200 dark:border-white/10 rounded-lg py-2 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors cursor-pointer"
                         >
-                            <span className="text-2xl">{languages[lang as keyof typeof languages].flag}</span>
-                            <span className="font-medium">{languages[lang as keyof typeof languages].name}</span>
-                        </button>
-                    ))}
+                            <option value="vi">🇻🇳 Tiếng Việt</option>
+                            <option value="en">🇺🇸 English</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 dark:text-white/50">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* Appearance */}
+            {/* Appearance */}
             <div className="glass-card p-5">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/20 dark:bg-yellow-500/20 flex items-center justify-center">
-                        {localSettings.darkMode ? (
-                            <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                            </svg>
-                        )}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/20 dark:bg-yellow-500/20 flex items-center justify-center">
+                            {localSettings.darkMode ? (
+                                <svg className="w-5 h-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                                </svg>
+                            ) : (
+                                <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                </svg>
+                            )}
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-800 dark:text-white">
+                                {localSettings.darkMode ? t.darkMode : t.lightMode}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-white/50">
+                                {localSettings.darkMode ? 'Background: BG.png' : 'Light gradient'}
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="font-medium text-gray-800 dark:text-white">
-                            {localSettings.darkMode ? t.darkMode : t.lightMode}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-white/50">
-                            {localSettings.darkMode ? 'Background: BG.png' : 'Light gradient'}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-2">
                     <button
-                        onClick={() => handleThemeChange(false)}
-                        className={`p-4 rounded-xl border transition-all duration-300 flex flex-col items-center gap-3 ${!localSettings.darkMode
-                            ? 'bg-gradient-primary text-white border-transparent shadow-lg transform scale-105'
-                            : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary-300 dark:hover:border-primary-500/50'
+                        onClick={() => handleThemeChange(!localSettings.darkMode)}
+                        className={`relative w-14 h-7 rounded-full transition-colors ${localSettings.darkMode ? 'bg-gradient-primary' : 'bg-gray-200 dark:bg-gray-700'
                             }`}
                     >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${!localSettings.darkMode ? 'bg-white/20' : 'bg-gray-100 dark:bg-white/10'}`}>
-                            <svg className="w-5 h-5 text-white dark:text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                            </svg>
+                        <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow-md ${localSettings.darkMode ? 'left-8' : 'left-1'
+                            }`}>
+                            {/* Icon inside toggle */}
+                            <div className="w-full h-full flex items-center justify-center">
+                                {localSettings.darkMode ? (
+                                    <svg className="w-3 h-3 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-3 h-3 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                                    </svg>
+                                )}
+                            </div>
                         </div>
-                        <span className="font-medium">{t.lightMode}</span>
-                    </button>
-                    <button
-                        onClick={() => handleThemeChange(true)}
-                        className={`p-4 rounded-xl border transition-all duration-300 flex flex-col items-center gap-3 ${localSettings.darkMode
-                            ? 'bg-gradient-primary text-white border-transparent shadow-lg transform scale-105'
-                            : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary-300 dark:hover:border-primary-500/50'
-                            }`}
-                    >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${localSettings.darkMode ? 'bg-white/20' : 'bg-gray-100 dark:bg-white/10'}`}>
-                            <svg className="w-5 h-5 text-white dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                            </svg>
-                        </div>
-                        <span className="font-medium">{t.darkMode}</span>
                     </button>
                 </div>
             </div>
