@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-electron/
+release/
+release2/
+
+# Development
+.vite/
+*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript cache
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+tsconfig.node.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Electron builder cache
+.icon-ico/
+
+# yt-dlp binary (will be downloaded during build)
+electron/yt-dlp.exe

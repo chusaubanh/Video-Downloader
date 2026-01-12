@@ -1,0 +1,285 @@
+# Video Downloader App - Implementation Plan
+
+## Overview
+Xây dựng ứng dụng desktop cho phép tải video từ các mạng xã hội phổ biến (TikTok, Instagram, Facebook, YouTube, Twitter/X) **không có watermark**. Ứng dụng sử dụng **ReactJS + TailwindCSS** cho frontend và được đóng gói thành ứng dụng desktop với **Electron**.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Phương pháp tải video**: Sẽ sử dụng thư viện **yt-dlp** (open-source, miễn phí) thông qua Electron để tải video. Đây là giải pháp phổ biến và đáng tin cậy nhất cho việc tải video từ nhiều nền tảng.
+
+> [!WARNING]  
+> **Lưu ý pháp lý**: Người dùng chịu trách nhiệm tuân thủ điều khoản sử dụng của từng nền tảng và luật bản quyền khi sử dụng ứng dụng.
+
+---
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Electron App
+        A[React UI] --> B[Electron IPC]
+        B --> C[Main Process]
+        C --> D[yt-dlp Engine]
+        D --> E[Download Manager]
+    end
+    
+    F[User Input URL] --> A
+    E --> G[Local Storage]
+```
+
+---
+
+## Proposed Changes
+
+### Component 1: Project Setup
+
+#### [NEW] package.json
+- Khởi tạo dự án với Vite + React + TypeScript
+- Dependencies: react, react-dom, tailwindcss, electron, electron-builder
+
+#### [NEW] vite.config.ts
+- Cấu hình Vite cho Electron integration
+
+#### [NEW] tailwind.config.js
+- Theme colors: Dark luxury palette
+- Custom animations
+
+#### [NEW] electron/main.js
+- Electron main process
+- Window management
+- IPC handlers
+
+#### [NEW] electron/preload.js
+- Secure IPC bridge
+
+---
+
+### Component 2: UI Components (ReactJS + TailwindCSS)
+
+#### [NEW] src/App.tsx
+- Main application layout
+- Dark theme với glassmorphism effect
+- Gradient backgrounds
+
+#### [NEW] src/components/Header.tsx
+- App logo và title
+- Minimize/Close buttons
+
+#### [NEW] src/components/URLInput.tsx
+- Input field với glass effect
+- Platform auto-detection (icon hiển thị)
+- Validate URL
+- Loading animation
+
+#### [NEW] src/components/VideoPreview.tsx
+- Thumbnail display
+- Video info (title, duration, author)
+- Quality selector dropdown
+- Download button với animation
+
+#### [NEW] src/components/DownloadProgress.tsx
+- Progress bar với gradient
+- Speed và time remaining
+- Cancel button
+
+#### [NEW] src/components/DownloadHistory.tsx
+- List các video đã tải
+- Open file/folder buttons
+
+#### [NEW] src/components/PlatformBadge.tsx
+- Icon badges cho từng platform
+- TikTok, Instagram, Facebook, YouTube, Twitter/X
+
+---
+
+### Component 3: Core Services
+
+#### [NEW] src/services/videoService.ts
+```typescript
+interface VideoInfo {
+  title: string;
+  thumbnail: string;
+  duration: string;
+  author: string;
+  platform: Platform;
+  formats: VideoFormat[];
+}
+
+interface VideoFormat {
+  quality: string;
+  format: string;
+  size: string;
+  url: string;
+}
+```
+
+#### [NEW] src/services/downloadService.ts
+- Download management
+- Progress tracking
+- Queue system
+
+#### [NEW] src/services/historyService.ts
+- LocalStorage persistence
+- Recent downloads
+
+---
+
+### Component 4: Electron Integration
+
+#### [NEW] electron/ytdlp.js
+- yt-dlp wrapper
+- Extract video info
+- Download with progress
+
+#### [NEW] electron/ipc-handlers.js
+- `get-video-info`: Lấy thông tin video
+- `download-video`: Tải video
+- `cancel-download`: Hủy tải
+- `open-folder`: Mở folder chứa file
+
+---
+
+### Component 5: Assets & Branding
+
+#### [NEW] public/icon.png
+- App icon (512x512)
+- Modern gradient design
+
+#### [NEW] src/styles/index.css
+- TailwindCSS imports
+- Custom animations
+- Glass effects
+
+---
+
+## UI Design Specifications
+
+### Color Palette (Dark Luxury Theme)
+```css
+--bg-primary: #0a0a0f
+--bg-secondary: #1a1a2e
+--bg-glass: rgba(255, 255, 255, 0.05)
+--accent-primary: #6366f1 (Indigo)
+--accent-secondary: #8b5cf6 (Purple)
+--accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6)
+--text-primary: #ffffff
+--text-secondary: #94a3b8BG
+```
+
+### Animations
+- Smooth hover transitions (200ms)
+- Loading spinner với gradient
+- Progress bar glow effect
+- Button press feedback
+
+---
+
+## Verification Plan
+
+### Automated Tests
+
+1. **Build Test**
+```bash
+cd "d:\Thiết kế app cá nhân"
+npm run build
+```
+- Verify: Build thành công không lỗi
+
+2. **Electron Dev Test**
+```bash
+npm run electron:dev
+```
+- Verify: Ứng dụng khởi động
+- Verify: UI hiển thị đúng
+
+### Manual Verification
+
+1. **UI/UX Testing**
+   - Mở ứng dụng
+   - Kiểm tra dark theme hiển thị đúng
+   - Kiểm tra animations smooth
+   - Kiểm tra responsive layout
+
+2. **Functionality Testing**
+   - Paste URL TikTok → Verify: Hiển thị video info
+   - Paste URL YouTube → Verify: Hiển thị video info
+   - Click Download → Verify: Progress bar hoạt động
+   - Verify: File được lưu đúng vị trí
+
+3. **Electron Packaging Test**
+```bash
+npm run build:electron
+```
+- Verify: File .exe được tạo
+- Verify: Chạy được trên Windows
+
+---
+
+## File Structure
+
+```
+d:\Thiết kế app cá nhân\
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+├── tsconfig.json
+├── index.html
+├── public/
+│   └── icon.png
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── styles/
+│   │   └── index.css
+│   ├── components/
+│   │   ├── Header.tsx
+│   │   ├── URLInput.tsx
+│   │   ├── VideoPreview.tsx
+│   │   ├── DownloadProgress.tsx
+│   │   ├── DownloadHistory.tsx
+│   │   └── PlatformBadge.tsx
+│   └── services/
+│       ├── videoService.ts
+│       ├── downloadService.ts
+│       └── historyService.ts
+└── electron/
+    ├── main.js
+    ├── preload.js
+    ├── ytdlp.js
+    └── ipc-handlers.js
+```
+
+---
+
+## Dependencies
+
+```json
+{
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "typescript": "^5.3.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.0",
+    "concurrently": "^8.2.0"
+  }
+}
+```
+
+---
+
+## Next Steps After Approval
+
+1. Khởi tạo project với Vite + React + TypeScript
+2. Cấu hình TailwindCSS với dark luxury theme
+3. Xây dựng UI components
+4. Tích hợp Electron và yt-dlp
+5. Test và đóng gói ứng dụng
